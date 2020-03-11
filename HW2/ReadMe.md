@@ -48,7 +48,7 @@ If there left some tokens, add them to the queue, unless they are unexpected par
 
 2. For boolean.py, I want to use its classes hiearchy to evaluate the query. Yet I did not finish this part. boolean.py is buggy.
 
-== References ==
+# References
 
 1. Shunting's algo in arithmetic: 
 http://rosettacode.org/wiki/Parsing/Shunting-yard_algorithm#Python
