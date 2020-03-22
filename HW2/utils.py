@@ -88,7 +88,7 @@ class Posting(object):
 
 
 ############################################
-###########        BooleanTree          ###########
+###########      BooleanTree     ###########
 ############################################
 class BooleanTree(object):
     ''' a Boolean Tree represents a query '''
