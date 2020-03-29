@@ -1,5 +1,5 @@
 """
-Adapted version of Boolean.py by Jiahan Yu
+** Adapted version of Boolean.py by myself ** (not original version)
 
 Reference from:
 Boolean expressions algebra.
