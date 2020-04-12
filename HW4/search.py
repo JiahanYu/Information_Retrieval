@@ -21,7 +21,7 @@ try:
 except ImportError:
     import pickle
 
-TOP_K = 10
+
 phrasal_query = False
 
 
@@ -35,14 +35,16 @@ def get_term_freq(query):
             term_count A dictionary where records the counts of the terms in the query: DefaultDict[str: int]
     '''
 
-    # tokenize the query string
-    tokens = [word for sent in sent_tokenize(query) for word in word_tokenize(sent)]
 
+    # tokenize the query string
+    tokens = [word for sent in sent_tokenize(query)  for word in word_tokenize(sent)]
+    if '"' in query:
+        phrasal_query = True
+        tokens = [token.replace('"', "").strip() for token in tokens]
     # stem the tokens
     ps = PorterStemmer()
     tokens = [ps.stem(token.lower()) for token in tokens]
     # tokens = [ps.stem(token.lower()) for token in query.split()]
-
     # get the term count
     term_count = defaultdict(int)
     for token in tokens:
@@ -157,7 +159,7 @@ def verify(candidate, tokens, postings_dict):
     return ans
 
 
-def find_10_most_relevant(query, dictionary, postings, num_of_doc):
+def execute_search(query, dictionary, postings, num_of_doc):
     '''
     Compute cosine similarity between the query and each document, i.e.,
     the lnc tf-idf for the tuples (term, frequency).
@@ -202,7 +204,7 @@ def find_10_most_relevant(query, dictionary, postings, num_of_doc):
                 score[doc_id] += q_weight * value.weight
 
     ''' rank and get result '''
-    return [doc_id for (doc_id, _) in score.most_common(TOP_K)]
+    return [doc_id for (doc_id, _) in score.most_common()]
 
 
 def run_search(dict_file, postings_file, queries_file, results_file):
@@ -232,8 +234,8 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         most relevant doc IDs) to the result file 
         '''
         for query in q_in:
-            print(*find_10_most_relevant(query, dictionary,
-                                         postings, num_of_doc), end='\n', file=q_out)
+            print(*execute_search(query, dictionary,
+                                  postings, num_of_doc), end='\n', file=q_out)
 
 
 def usage():
@@ -265,8 +267,6 @@ for o, a in opts:
         file_of_queries = a
     elif o == '-o':
         file_of_output = a
-    elif o == '-x':
-        phrasal_query = True
     else:
         assert False, "unhandled option"
 
