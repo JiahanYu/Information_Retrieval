@@ -7,12 +7,13 @@ from collections import Counter, defaultdict
 from math import log10 as log
 import array
 
+
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.tokenize import sent_tokenize, word_tokenize
-
+from nltk.corpus import wordnet
 
 from utils import Entry, Posting, Token, get_tf, normalize, preprocess
 
@@ -23,7 +24,7 @@ except ImportError:
 
 
 phrasal_query = False
-
+K_MOST_RELEVANT = 5
 
 def get_term_freq(query):
     ''' 
@@ -37,6 +38,7 @@ def get_term_freq(query):
 
 
     # tokenize the query string
+
     tokens = [word for sent in sent_tokenize(query)  for word in word_tokenize(sent)]
     if '"' in query:
         phrasal_query = True
@@ -55,6 +57,11 @@ def get_term_freq(query):
 
     return tokens, terms, term_count
 
+def is_boolean(query):
+    '''
+    Checks if the given query is boolean or free text
+    '''
+    return "AND" in query
 
 def get_idf(N, doc_freq):
     '''
@@ -158,6 +165,40 @@ def verify(candidate, tokens, postings_dict):
 
     return ans
 
+def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted):
+    #print(query_weighted)
+    feedback ={}
+    alpha = 0.8
+    beta = 1 - alpha
+    '''
+    for term in query_weighted:
+        #print(term)
+        for doc_id in most_rel_doc_id:
+            #print(doc_id)
+            #print(postings[term])
+            if doc_id in postings[term]:
+                if term not in feedback:
+                    feedback[term] = 0
+                feedback[term]+=postings[term][doc_id].weight
+                '''
+    for term in dictionary:
+        for doc_id, freq in postings[term].items():
+            if doc_id in most_rel_doc_id:
+                if term not in feedback:
+                    feedback[term] = 0
+                feedback[term]+=postings[term][doc_id].weight
+
+    prf_query = {}
+    for term in query_weighted:
+        f = 0
+        if term in feedback:
+            f = feedback[term]
+        prf_query[term] = alpha * query_weighted[term] + beta * f / K_MOST_RELEVANT
+    for term in feedback:
+        if term not in query_weighted:
+            prf_query[term] = beta * feedback[term] / K_MOST_RELEVANT
+
+    return prf_query
 
 def execute_search(query, dictionary, postings, num_of_doc):
     '''
@@ -195,17 +236,42 @@ def execute_search(query, dictionary, postings, num_of_doc):
     # Compute the score for each document containing one of those
     # terms in the query.
     score = Counter()
+    query_vector = {}
     for ((term, _), q_weight) in zip(term_freq.items(), query_weight):
+        query_vector[term ] = q_weight
         if q_weight > 0:
             ''' get the postings lists of the term, update the score '''
             for doc_id, value in postings[term].items():
                 if phrasal_query and (doc_id not in doc_to_rank):
                     continue
                 score[doc_id] += q_weight * value.weight
-
-    ''' rank and get result '''
+   # return [doc_id for (doc_id, _) in score.most_common(NB_MOST_RELEVENT)]
+    ''' rank and get result'''
+    most_rel_docs= [doc_id for (doc_id, _) in score.most_common(K_MOST_RELEVANT)]
+    new_query = pseudo_rel_feedback(postings,dictionary, most_rel_docs, query_vector)
+    #print(new_query)
+    score = Counter()
+    for term in new_query:
+        for doc_id, value in postings[term].items():
+            if phrasal_query and (doc_id not in doc_to_rank):
+                continue
+            score[doc_id] += new_query[term] * value.weight
     return [doc_id for (doc_id, _) in score.most_common()]
 
+def expand_query(query):
+    split_query = query.split(" ")
+    synonyms = []
+    cnt = 0
+    for word in split_query:
+        for synonym in wordnet.synsets(word):
+            for lemma in synonym.lemmas():
+                if cnt < 4:
+                    if lemma.name() not in synonyms:
+                        synonyms.append(lemma.name())
+                        cnt += 1
+        cnt = 0
+    synonyms = list(map(lambda syn: syn.replace("_", " "), synonyms))
+    return synonyms
 
 def run_search(dict_file, postings_file, queries_file, results_file):
     """
@@ -247,8 +313,7 @@ def usage():
           "  -d  dictionary file path\n"
           "  -p  postings file path\n"
           "  -q  queries file path\n"
-          "  -o  search results file path\n"
-          "  -x  enable phrasal query\n")
+          "  -o  search results file path\n")
 
 dictionary_file = postings_file = file_of_queries = output_file_of_results = None
 
