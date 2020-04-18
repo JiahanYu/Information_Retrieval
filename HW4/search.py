@@ -182,7 +182,11 @@ def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted):
                 feedback[term]+=postings[term][doc_id].weight
                 '''
     for term in dictionary:
-        for doc_id, freq in postings[term].items():
+        try:
+            items = postings[term].items()
+        except:
+            continue
+        for doc_id, freq in items:
             if doc_id in most_rel_doc_id:
                 if term not in feedback:
                     feedback[term] = 0
@@ -252,7 +256,11 @@ def execute_search(query, dictionary, postings, num_of_doc):
     #print(new_query)
     score = Counter()
     for term in new_query:
-        for doc_id, value in postings[term].items():
+        try:
+            items = postings[term].items()
+        except:
+            continue
+        for doc_id, freq in items:
             if phrasal_query and (doc_id not in doc_to_rank):
                 continue
             score[doc_id] += new_query[term] * value.weight
