@@ -24,6 +24,7 @@ except ImportError:
 
 
 phrasal_query = False
+
 K_MOST_RELEVANT = 5
 
 def get_term_freq(query):
@@ -36,13 +37,13 @@ def get_term_freq(query):
             term_count A dictionary where records the counts of the terms in the query: DefaultDict[str: int]
     '''
 
-
+    global phrasal_query
     # tokenize the query string
-
-    tokens = [word for sent in sent_tokenize(query)  for word in word_tokenize(sent)]
     if '"' in query:
         phrasal_query = True
-        tokens = [token.replace('"', "").strip() for token in tokens]
+        query= query.strip().lstrip('"').rstrip('"')
+    tokens = [word for sent in sent_tokenize(query) for word in word_tokenize(sent)]
+
     # stem the tokens
     ps = PorterStemmer()
     tokens = [ps.stem(token.lower()) for token in tokens]
@@ -201,7 +202,6 @@ def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted):
     for term in feedback:
         if term not in query_weighted:
             prf_query[term] = beta * feedback[term] / K_MOST_RELEVANT
-
     return prf_query
 
 def execute_search(query, dictionary, postings, num_of_doc):
