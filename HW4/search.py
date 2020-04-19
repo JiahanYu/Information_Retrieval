@@ -76,7 +76,7 @@ def get_idf(N, doc_freq):
     else:
         return log(float(N/doc_freq))
 
-def interection(terms, postings_dict):
+def intersection(terms, postings_dict):
     ''' perform posting list intersection to retrieve a list of candidate doc IDs '''
     if len(terms) == 0:
         return []
@@ -227,7 +227,7 @@ def execute_search(query, dictionary, postings, num_of_doc):
     tokens, terms, term_freq = get_term_freq(query)
     
     if phrasal_query:
-        doc_candidate = interection(terms, postings)
+        doc_candidate = intersection(terms, postings)
         doc_to_rank = verify(doc_candidate, tokens, postings)
 
 
@@ -264,7 +264,7 @@ def execute_search(query, dictionary, postings, num_of_doc):
             if phrasal_query and (doc_id not in doc_to_rank):
                 continue
             score[doc_id] += new_query[term] * value.weight
-    return [doc_id for (doc_id, _) in score.most_common()]
+    return score
 
 def expand_query(query):
     split_query = query.split(" ")
@@ -280,6 +280,19 @@ def expand_query(query):
         cnt = 0
     synonyms = list(map(lambda syn: syn.replace("_", " "), synonyms))
     return synonyms
+
+def eval_and(scores1, scores2):
+    """
+    find intersection of scores1 and scores2:
+    add together scores for all doc_ids that exist both in scores1 and scores2, discard the rest
+    length of scores1 should be less than length of scores2
+    """
+    result = Counter()
+    for doc_id, score1 in scores1.most_common():
+        score2 = scores2[doc_id]
+        if score2 != 0:
+            result[doc_id] = score1 + score2
+    return result
 
 def run_search(dict_file, postings_file, queries_file, results_file):
     """
@@ -308,9 +321,17 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         most relevant doc IDs) to the result file 
         '''
         for query in q_in:
-            print(*execute_search(query, dictionary,
-                                  postings, num_of_doc), end='\n', file=q_out)
-
+            # handle boolean query: split into subqueries
+            subqueries = query.split(' AND ')
+            subresults = [execute_search(subquery, dictionary, postings, num_of_doc) for subquery in subqueries]
+            # merge results of subqueries
+            subresults.sort(key=len)
+            while len(subresults) > 1:
+                subresults[1] = eval_and(subresults[0], subresults[1])
+                subresults.pop(0)
+            # print result to output file
+            result = [doc_id for (doc_id, _) in subresults[0].most_common()]
+            print(*result, end='\n', file=q_out)
 
 def usage():
     # test on my PC: $python3 search.py -d dictionary.txt -p postings.txt -q queries.txt -o output.txt
