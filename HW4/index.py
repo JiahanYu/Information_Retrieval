@@ -12,12 +12,15 @@ from nltk.tokenize import RegexpTokenizer, sent_tokenize, word_tokenize
 
 from utils import Entry, Token, PhrasalToken, normalize, get_tf
 
+import csv
+import numpy as np
+
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
 
-phrasal_query = False  # operate phrase query
+phrasal_query = True  # operate phrase query
 
 def tokenize(paragraph):
     '''
@@ -75,17 +78,36 @@ def build_index(in_dir, out_dict, out_postings):
     """
     print('indexing...')
 
-    ''' Create a sorted list of the files inside the directory '''
-    corpus = PlaintextCorpusReader(in_dir, '.*')
-    file_names_str = corpus.fileids()
-    file_names = sorted(map(int, file_names_str))
+    ''' read csv files into nest list '''
+    maxInt = sys.maxsize
+    while True:
+        try:
+            csv.field_size_limit(maxInt)
+            break
+        except OverflowError:
+            maxInt = int(maxInt/10)
+
+    with open(in_dir, 'r', encoding='UTF-8') as csvfile:
+        reader = csv.reader(csvfile)
+        rows = [row for row in reader]
+
+    rows.pop(0)
 
     ''' Load corpus and generate the postings dictionary '''
     postings = defaultdict(dict)
     tokens = list()
-    for fn in file_names:
-        
-        content = corpus.raw(str(fn))  # read file content
+    docsInfo = defaultdict(dict)
+
+    for rowID in range(len(rows)):
+        print("processing row: " + str(rowID))
+        if rowID > 20:
+            break
+        docID = rows[rowID][0]
+        content = rows[rowID][2]
+        date = rows[rowID][3]
+        court = rows[rowID][4]
+        docsInfo[docID] = [date, court]
+
         words = tokenize(content)  # tokenization: content -> words
         tokens = stemming(words)  # stemming
 
@@ -119,14 +141,14 @@ def build_index(in_dir, out_dict, out_postings):
                 [get_tf(y[0]) for (x, y) in token_len.items()])
 
             for ((token, freq), w_tf) in zip(token_len.items(), weighted_tokenfreq):
-                postings[token][fn] = PhrasalToken(freq[0], freq[1], w_tf)
+                postings[token][docID] = PhrasalToken(freq[0], freq[1], w_tf)
         else:
 
             weighted_tokenfreq = normalize(
                 [get_tf(y) for (x, y) in token_len.items()])
 
             for ((token, freq), w_tf) in zip(token_len.items(), weighted_tokenfreq):
-                postings[token][fn] = Token(freq, w_tf)
+                postings[token][docID] = Token(freq, w_tf)
 
     ''' 
     Output dictionary and postings files 
@@ -153,7 +175,8 @@ def build_index(in_dir, out_dict, out_postings):
 
     # write dictionary file
     with open(out_dict, mode="wb") as dictionary_file:
-        pickle.dump(len(file_names), dictionary_file)
+        pickle.dump(len(rows), dictionary_file)
+        pickle.dump(docsInfo, dictionary_file)
         pickle.dump(dictionary, dictionary_file)
 
 
