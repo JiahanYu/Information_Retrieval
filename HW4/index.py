@@ -20,7 +20,7 @@ try:
 except ImportError:
     import pickle
 
-phrasal_query = False  # operate phrase query
+phrasal_query = True  # operate phrase query
 
 def tokenize(paragraph):
     '''
