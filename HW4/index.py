@@ -98,8 +98,10 @@ def build_index(in_dir, out_dict, out_postings):
     postings = defaultdict(dict)
     tokens = list()
     docsInfo = defaultdict(dict)
-
+    docs_to_terms = defaultdict(dict)
+    
     print(str(len(rows)) + " rows in total. ")
+
     for rowID in range(len(rows)):
         print("processing row: " + str(rowID))
         docID = rows[rowID][0]
@@ -107,9 +109,9 @@ def build_index(in_dir, out_dict, out_postings):
         date = rows[rowID][3]
         court = rows[rowID][4]
         docsInfo[docID] = [date, court]
-
         words = tokenize(content)  # tokenization: content -> words
         tokens = stemming(words)  # stemming
+        docs_to_terms[docID] = tokens
 
         if phrasal_query:
             token_len = defaultdict(list)
@@ -157,7 +159,6 @@ def build_index(in_dir, out_dict, out_postings):
     in the postings file, and the size (in bytes).
     - Postings file stores the list of tuples -> (document ID, term freq).
     '''
-
     # write postings file
     dictionary = defaultdict(Entry)
     with open(out_postings, mode="wb") as postings_file:
@@ -177,6 +178,7 @@ def build_index(in_dir, out_dict, out_postings):
     with open(out_dict, mode="wb") as dictionary_file:
         pickle.dump(len(rows), dictionary_file)
         pickle.dump(docsInfo, dictionary_file)
+        pickle.dump(docs_to_terms, dictionary_file)
         pickle.dump(dictionary, dictionary_file)
 
 

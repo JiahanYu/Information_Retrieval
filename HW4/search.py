@@ -7,7 +7,6 @@ from collections import Counter, defaultdict
 from math import log10 as log
 import array
 
-
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
@@ -24,6 +23,10 @@ except ImportError:
 
 
 phrasal_query = False
+
+lesk_on = False #set for using lesk algorithm
+expand = False #set for using query expansion
+
 
 K_MOST_RELEVANT = 5
 
@@ -43,7 +46,6 @@ def get_term_freq(query):
         phrasal_query = True
         query= query.strip().lstrip('"').rstrip('"')
     tokens = [word for sent in sent_tokenize(query) for word in word_tokenize(sent)]
-
     # stem the tokens
     ps = PorterStemmer()
     tokens = [ps.stem(token.lower()) for token in tokens]
@@ -166,45 +168,37 @@ def verify(candidate, tokens, postings_dict):
 
     return ans
 
-def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted):
-    #print(query_weighted)
-    feedback ={}
-    alpha = 0.8
-    beta = 1 - alpha
+
+
+def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted, docs_to_terms):
     '''
-    for term in query_weighted:
-        #print(term)
-        for doc_id in most_rel_doc_id:
-            #print(doc_id)
-            #print(postings[term])
-            if doc_id in postings[term]:
-                if term not in feedback:
-                    feedback[term] = 0
-                feedback[term]+=postings[term][doc_id].weight
-                '''
-    for term in dictionary:
-        try:
-            items = postings[term].items()
-        except:
-            continue
-        for doc_id, freq in items:
-            if doc_id in most_rel_doc_id:
-                if term not in feedback:
-                    feedback[term] = 0
-                feedback[term]+=postings[term][doc_id].weight
+    implementation of pseudo relevance feedback algorithm,
+    takes a list of the most relevant k documents with normal retrieval and uses the terms in them to expand the query
+    '''
+    feedback ={}
+    alpha = 1 # the weight of the original query terms remains the same
+    beta = 0.2 # the weight of the added terms from the most relevant documents
+
+    for doc_id in most_rel_doc_id:
+        for term in docs_to_terms[doc_id]:
+            if term not in feedback:
+                feedback[term] = 0
+            feedback[term] += postings[term][doc_id].weight #feedback holds the weight for each term in the new query
 
     prf_query = {}
     for term in query_weighted:
         f = 0
         if term in feedback:
             f = feedback[term]
-        prf_query[term] = alpha * query_weighted[term] + beta * f / K_MOST_RELEVANT
+        prf_query[term] = alpha * query_weighted[term] + beta * f / K_MOST_RELEVANT #adding the modified weights to the existing query terms
+
     for term in feedback:
         if term not in query_weighted:
-            prf_query[term] = beta * feedback[term] / K_MOST_RELEVANT
+            prf_query[term] = beta * feedback[term] / K_MOST_RELEVANT #adding the new query terms
+
     return prf_query
 
-def execute_search(query, dictionary, postings, num_of_doc):
+def execute_search(query, dictionary, postings, num_of_doc, docs_to_terms):
     '''
     Compute cosine similarity between the query and each document, i.e.,
     the lnc tf-idf for the tuples (term, frequency).
@@ -230,7 +224,12 @@ def execute_search(query, dictionary, postings, num_of_doc):
         doc_candidate = intersection(terms, postings)
         doc_to_rank = verify(doc_candidate, tokens, postings)
 
-
+    if lesk_on:
+        query = lesk( query)
+        print(query)
+    if expand:
+        query = expand_query(query)
+        print(query)
     # Compute cosine similarity between the query and each document,
     # with the weights follow the tf×idf calculation, and then do
     # normalization
@@ -252,7 +251,7 @@ def execute_search(query, dictionary, postings, num_of_doc):
    # return [doc_id for (doc_id, _) in score.most_common(NB_MOST_RELEVENT)]
     ''' rank and get result'''
     most_rel_docs= [doc_id for (doc_id, _) in score.most_common(K_MOST_RELEVANT)]
-    new_query = pseudo_rel_feedback(postings,dictionary, most_rel_docs, query_vector)
+    new_query = pseudo_rel_feedback(postings,dictionary, most_rel_docs, query_vector,docs_to_terms)
     #print(new_query)
     score = Counter()
     for term in new_query:
@@ -266,20 +265,70 @@ def execute_search(query, dictionary, postings, num_of_doc):
             score[doc_id] += new_query[term] * value.weight
     return score
 
+def lesk(query):
+    '''
+    implementing the general Lesk Algorithm, with a slight modification - trying it on every word of the query,
+    finding the best context sense for each word taking into consideration the other words in the query,
+    and taking the first synonym for that sense to replace the initial word
+    ex. big person try
+    output: large person attempt
+    '''
+    words = word_tokenize(preprocess(query, removepunc=True))
+    for word in words:
+        senses = wordnet.synsets(word)  # Take all WordNet senses of the target word
+        if not senses: # if there are no synonyms for this word
+            continue
+        bestsense = senses[0]  # Initialise as the most frequent sense of the word
+        maxOverlap = 0
+        sentence = word_tokenize(preprocess(query, removepunc=True))  # Tokenize the query
+        for sense in senses:
+            gloss = set(word_tokenize(sense.definition())) #adding all the words from the definition of that synonym, to get the gloss of that synonym
+            for ex in sense.examples():
+                gloss.union(word_tokenize(ex))
+            overlap = len(gloss.intersection(sentence))
+
+            for h in sense.hyponyms(): #using hyponyms as well
+                gloss = set(word_tokenize(h.definition()))
+                for ex in h.examples():
+                    gloss.union(word_tokenize(ex))
+                overlap += len(gloss.intersection(sentence))
+
+            if overlap > maxOverlap: #choosing the best sense - set of synonyms to be used
+                maxOverlap = overlap
+                bestsense = sense
+        try:
+            best_syn = bestsense.lemmas()[0].name() #taking the first synonym for that sense if it exists
+        except:
+            continue
+        if best_syn not in query: #if the synonym chosen was not used we replace it in the query
+            query = query.replace(word,best_syn)
+    return query
+
+
+
 def expand_query(query):
-    split_query = query.split(" ")
+    '''
+    expanding the query with one synonym for each word in the query
+    ex. big person try
+    expanded: big person try large individual attempt
+    '''
+    split_query = preprocess(query, removepunc=True).split(" ")
     synonyms = []
     cnt = 0
     for word in split_query:
+        synonyms.append(word)
+    for word in split_query:
         for synonym in wordnet.synsets(word):
             for lemma in synonym.lemmas():
-                if cnt < 4:
-                    if lemma.name() not in synonyms:
+                if cnt < 1:
+                    if preprocess(lemma.name()) not in synonyms and '_'not in lemma.name(): #checking that the synonym is not the word itself
+                                                                                # or that it is not a combination of two words
                         synonyms.append(lemma.name())
                         cnt += 1
         cnt = 0
-    synonyms = list(map(lambda syn: syn.replace("_", " "), synonyms))
-    return synonyms
+    new_query = ' '.join(list(synonyms))
+    #synonyms = list(map(lambda syn: syn.replace("_", " "), synonyms))
+    return new_query
 
 def eval_and(scores1, scores2):
     """
@@ -313,6 +362,8 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         - postings  -> list of tuples (doc ID, token frequency)
         '''
         num_of_doc = pickle.load(dictionary_file)
+        docsInfo = pickle.load(dictionary_file)
+        docs_to_terms = pickle.load(dictionary_file)
         dictionary = pickle.load(dictionary_file)
         postings = Posting(dictionary, posting_file)
 
@@ -323,7 +374,7 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         for query in q_in:
             # handle boolean query: split into subqueries
             subqueries = query.split(' AND ')
-            subresults = [execute_search(subquery, dictionary, postings, num_of_doc) for subquery in subqueries]
+            subresults = [execute_search(subquery, dictionary, postings, num_of_doc, docs_to_terms) for subquery in subqueries]
             # merge results of subqueries
             subresults.sort(key=len)
             while len(subresults) > 1:
