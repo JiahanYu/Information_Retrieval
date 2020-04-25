@@ -6,7 +6,7 @@ import string
 import sys
 from collections import Counter, defaultdict
 from math import log10 as log
-
+from math import sqrt
 import nltk
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import PorterStemmer
@@ -24,8 +24,9 @@ except ImportError:
 boolean_query = False
 phrasal_query = False
 
-lesk_on = False #set for using lesk algorithm
-expand = False #set for using query expansion
+lesk_on = True # set for using lesk algorithm
+expand = False # set for using query expansion
+prf_on = True # set for pseudo relevance feedback
 court_rank = False  # sort according to the courts hierarchy
 
 K_MOST_RELEVANT = 5
@@ -214,9 +215,10 @@ def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted, do
 
     for doc_id in most_rel_doc_id:
         for term in docs_to_terms[doc_id]:
-            if term not in feedback:
-                feedback[term] = 0
-            feedback[term] += postings[term][doc_id].weight #feedback holds the weight for each term in the new query
+            if term not in stopWords:
+                if term not in feedback:
+                    feedback[term] = 0
+                feedback[term] += postings[term][doc_id].weight #feedback holds the weight for each term in the new query
 
     prf_query = {}
     for term in query_weighted:
@@ -251,19 +253,21 @@ def execute_search(query, dictionary, postings, num_of_doc, docs_to_terms):
     Get tokens (stemmed words in the query), terms (set of tokens), 
     and the dictionary of term frequency in the query: DefaultDict[str, int]
     '''
-    tokens, terms, term_freq = get_term_freq(query)
-    
-    if phrasal_query:
-        doc_candidate = intersection(terms, postings)
-        doc_to_rank = verify(doc_candidate, tokens, postings)
 
     if not boolean_query:
         if lesk_on:
-            query = lesk( query)
+            query = lesk(query)
             print(query)
         if expand:
             query = expand_query(query)
             print(query)
+
+    tokens, terms, term_freq = get_term_freq(query)
+
+    if phrasal_query:
+        doc_candidate = intersection(terms, postings)
+        doc_to_rank = verify(doc_candidate, tokens, postings)
+
     # Compute cosine similarity between the query and each document,
     # with the weights follow the tf×idf calculation, and then do
     # normalization
@@ -282,12 +286,16 @@ def execute_search(query, dictionary, postings, num_of_doc, docs_to_terms):
                 if phrasal_query and (doc_id not in doc_to_rank):
                     continue
                 score[doc_id] += q_weight * value.weight
-    if not boolean_query:
-    # return [doc_id for (doc_id, _) in score.most_common(NB_MOST_RELEVENT)]
+    if not boolean_query and prf_on:
         ''' rank and get result'''
         most_rel_docs = [doc_id for (doc_id, _) in score.most_common(K_MOST_RELEVANT)]
         new_query = pseudo_rel_feedback(postings,dictionary, most_rel_docs, query_vector,docs_to_terms)
-        #print(new_query)
+
+        ''' normalizing the new query '''
+        norm = sqrt(sum([i * i for i in new_query.values()], 0))
+        for term in new_query:
+            new_query[term] = new_query[term] / norm
+
         score = Counter()
         for term in new_query:
             try:
@@ -299,6 +307,8 @@ def execute_search(query, dictionary, postings, num_of_doc, docs_to_terms):
                     continue
                 score[doc_id] += new_query[term] * value.weight
     return score
+
+
 
 def lesk(query):
     '''
@@ -433,7 +443,8 @@ def run_search(dict_file, postings_file, queries_file, results_file):
             subresults[1] = eval_and(subresults[0], subresults[1])
             subresults.pop(0)
 
-        result = [doc_id for (doc_id, _) in subresults[0].most_common()]
+        result = [doc_id for (doc_id, score) in subresults[0].most_common()]
+
         if court_rank:
             topList = sorted(([subresults[0][docId], docId]
                                 for docId in result), key=lambda pair: (-pair[0], pair[1]))
