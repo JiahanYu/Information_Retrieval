@@ -1,21 +1,20 @@
 #!/usr/bin/python3
+import array
 import getopt
 import re
 import string
 import sys
 from collections import Counter, defaultdict
 from math import log10 as log
-import array
 
 import nltk
-from nltk.corpus import stopwords
+from nltk.corpus import stopwords, wordnet
 from nltk.stem import PorterStemmer
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.tokenize import sent_tokenize, word_tokenize
-from nltk.corpus import wordnet
-from uk2us import uk2us
 
-from utils import Entry, Posting, Token, get_tf, normalize, preprocess
+from uk2us import uk2us
+from utils import Entry, Posting, Token, get_tf, normalize, preprocess, getCourtsPriority
 
 try:
     import cPickle as pickle
@@ -27,11 +26,24 @@ phrasal_query = False
 
 lesk_on = False #set for using lesk algorithm
 expand = False #set for using query expansion
-
+court_rank = False  # sort according to the courts hierarchy
 
 K_MOST_RELEVANT = 5
 
-def get_term_freq(query):
+stemmer = PorterStemmer()
+stopWords = set(stopwords.words('english'))
+
+
+def filterStopWords(termsList):
+    ''' unused since it is wrapped in the get_term_freq() '''
+    #Remove all stop words from list of terms
+    filteredList = []
+    for term in termsList:
+        if term not in stopWords:
+            filteredList.append(term)
+    return filteredList
+
+def get_term_freq(query, stopword=True):
     ''' 
     Tokenize a given query, do stemming and uk2us translation.
     Count the term frequency in the query
@@ -47,18 +59,28 @@ def get_term_freq(query):
         phrasal_query = True
         query= query.strip().lstrip('"').rstrip('"')
     tokens = [word for sent in sent_tokenize(query) for word in word_tokenize(sent)]
+
     # stem the tokens and do uk2us translation
     ps = PorterStemmer()
-    tokens = [ps.stem(uk2us(token.lower())) for token in tokens]
-    # tokens = [ps.stem(token.lower()) for token in query.split()]
+
+    filteredList = []
+    for token in tokens:
+        if stopword:
+            # Remove all stop words
+            if token not in stopWords:
+                filteredList.append(ps.stem(uk2us(token.lower())))
+        else:
+            filteredList.append(ps.stem(uk2us(token.lower())))
+
     # get the term count
     term_count = defaultdict(int)
-    for token in tokens:
+    for token in filteredList:
         term_count[token] += 1
 
     # get the set of tokens
-    terms = list(set(tokens))
-    return tokens, terms, term_count
+    terms = list(set(filteredList))
+
+    return filteredList, terms, term_count
 
 def is_boolean(query):
     '''
@@ -168,6 +190,17 @@ def verify(candidate, tokens, postings_dict):
 
     return ans
 
+
+def singleBubbleSortPass(docIdResultsList, courts_dict):
+    ''' Bubbles documents with higher courts priority up the list '''
+    for x in range(len(docIdResultsList) - 1):
+        docId1 = docIdResultsList[x]
+        docId2 = docIdResultsList[x + 1]
+        if getCourtsPriority(docId2, courts_dict) > getCourtsPriority(docId1, courts_dict):
+            # Swap the docId
+            docIdResultsList[x] = docId2
+            docIdResultsList[x + 1] = docId1
+    return docIdResultsList
 
 
 def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted, docs_to_terms):
@@ -399,8 +432,20 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         while len(subresults) > 1 and len(subresults[0]) != 0:
             subresults[1] = eval_and(subresults[0], subresults[1])
             subresults.pop(0)
-        # print result to output file
+
         result = [doc_id for (doc_id, _) in subresults[0].most_common()]
+        if court_rank:
+            topList = sorted(([subresults[0][docId], docId]
+                                for docId in result), key=lambda pair: (-pair[0], pair[1]))
+            # print(topList)
+            docIdResultsList = [pair[1] for pair in topList]
+
+            for x in range(10):
+                #Use bubble sort passes to "bubble" higher priority court documents up slightly
+                #without affecting the overall ranking greatly
+                result = singleBubbleSortPass(docIdResultsList, docsInfo)
+
+        # print result to output file
         print(*result, end='\n', file=q_out)
 
 def usage():
