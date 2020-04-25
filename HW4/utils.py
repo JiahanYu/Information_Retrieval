@@ -1,3 +1,4 @@
+import ast
 import math
 import re
 import string
@@ -5,16 +6,55 @@ from collections import namedtuple
 from math import log10 as log
 from math import sqrt
 
+from nltk.stem.porter import PorterStemmer
+
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
+
+maxLength = None
+stemmer = PorterStemmer()
+
+highPrioritySet = {
+    'SG Court of Appeal',
+    'SG Privy Council',
+    'UK House of Lords'
+    'UK Supreme Court',
+    'High Court of Australia',
+    'CA Supreme Court]'
+}
+
+mediumPriorityList = {
+    'SG High Court',
+    'Singapore International Commercial Court',
+    'HK High Court',
+    'HK Court of First Instance',
+    'UK Crown Court',
+    'UK Court of Appeal',
+    'UK High Court',
+    'Federal Court of Australia',
+    'NSW Court of Appeal',
+    'NSW Court of Criminal Appeal',
+    'NSW Supreme Court'
+}
 
 ############################################
 ###########       Functions      ###########
 ############################################
 
 
+def getCourtsPriority(docId, courts_dict):
+    try:
+        courts = courts_dict[str(docId)][1]
+        if courts in highPrioritySet:
+            return 2
+        elif courts in mediumPriorityList:
+            return 1
+        else:
+            return 0
+    except KeyError as e:
+        return 0
 
 def preprocess(raw_text, removedigit=False, splitcombined=False, removepunc=False):
     ''' 

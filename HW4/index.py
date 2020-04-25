@@ -11,6 +11,7 @@ from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.tokenize import RegexpTokenizer, sent_tokenize, word_tokenize
 
 from utils import Entry, Token, PhrasalToken, normalize, get_tf
+from uk2us import uk2us
 
 import csv
 import numpy as np
@@ -63,9 +64,9 @@ def stemming(words, stopword=False, lemma=False):
             if lemma:
                 # lemmatization
                 lem = WordNetLemmatizer()
-                token = ps.stem(lem.lemmatize(w, "v"))
+                token = ps.stem(uk2us(lem.lemmatize(w, "v")))
             else:
-                token = ps.stem(w)
+                token = ps.stem(uk2us(w))
             stemmed_tokens.append(token)
 
     return stemmed_tokens
@@ -98,10 +99,11 @@ def build_index(in_dir, out_dict, out_postings):
     tokens = list()
     docsInfo = defaultdict(dict)
     docs_to_terms = defaultdict(dict)
+    
+    print(str(len(rows)) + " rows in total. ")
+
     for rowID in range(len(rows)):
         print("processing row: " + str(rowID))
-        if rowID > 20:
-            break
         docID = rows[rowID][0]
         content = rows[rowID][2]
         date = rows[rowID][3]
