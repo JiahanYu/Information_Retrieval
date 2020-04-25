@@ -110,7 +110,7 @@ def build_index(in_dir, out_dict, out_postings):
         court = rows[rowID][4]
         docsInfo[docID] = [date, court]
         words = tokenize(uk2us(content))  # tokenization: content -> words
-        tokens = stemming(words, stopword = True)  # stemming
+        tokens = stemming(words, stopword = True, lemma = True)  # stemming
         # docs_to_terms[docID] = tokens
 
         if phrasal_query:
