@@ -22,7 +22,7 @@ try:
 except ImportError:
     import pickle
 
-
+boolean_query = False
 phrasal_query = False
 
 lesk_on = False #set for using lesk algorithm
@@ -58,7 +58,6 @@ def get_term_freq(query):
 
     # get the set of tokens
     terms = list(set(tokens))
-
     return tokens, terms, term_count
 
 def is_boolean(query):
@@ -225,12 +224,13 @@ def execute_search(query, dictionary, postings, num_of_doc, docs_to_terms):
         doc_candidate = intersection(terms, postings)
         doc_to_rank = verify(doc_candidate, tokens, postings)
 
-    if lesk_on:
-        query = lesk( query)
-        print(query)
-    if expand:
-        query = expand_query(query)
-        print(query)
+    if not boolean_query:
+        if lesk_on:
+            query = lesk( query)
+            print(query)
+        if expand:
+            query = expand_query(query)
+            print(query)
     # Compute cosine similarity between the query and each document,
     # with the weights follow the tf×idf calculation, and then do
     # normalization
@@ -242,28 +242,29 @@ def execute_search(query, dictionary, postings, num_of_doc, docs_to_terms):
     score = Counter()
     query_vector = {}
     for ((term, _), q_weight) in zip(term_freq.items(), query_weight):
-        query_vector[term ] = q_weight
+        query_vector[term] = q_weight
         if q_weight > 0:
             ''' get the postings lists of the term, update the score '''
             for doc_id, value in postings[term].items():
                 if phrasal_query and (doc_id not in doc_to_rank):
                     continue
                 score[doc_id] += q_weight * value.weight
-   # return [doc_id for (doc_id, _) in score.most_common(NB_MOST_RELEVENT)]
-    ''' rank and get result'''
-    most_rel_docs= [doc_id for (doc_id, _) in score.most_common(K_MOST_RELEVANT)]
-    new_query = pseudo_rel_feedback(postings,dictionary, most_rel_docs, query_vector,docs_to_terms)
-    #print(new_query)
-    score = Counter()
-    for term in new_query:
-        try:
-            items = postings[term].items()
-        except:
-            continue
-        for doc_id, freq in items:
-            if phrasal_query and (doc_id not in doc_to_rank):
+    if not boolean_query:
+    # return [doc_id for (doc_id, _) in score.most_common(NB_MOST_RELEVENT)]
+        ''' rank and get result'''
+        most_rel_docs = [doc_id for (doc_id, _) in score.most_common(K_MOST_RELEVANT)]
+        new_query = pseudo_rel_feedback(postings,dictionary, most_rel_docs, query_vector,docs_to_terms)
+        #print(new_query)
+        score = Counter()
+        for term in new_query:
+            try:
+                items = postings[term].items()
+            except:
                 continue
-            score[doc_id] += new_query[term] * value.weight
+            for doc_id, freq in items:
+                if phrasal_query and (doc_id not in doc_to_rank):
+                    continue
+                score[doc_id] += new_query[term] * value.weight
     return score
 
 def lesk(query):
@@ -388,6 +389,9 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         for query in q_in:
             # handle boolean query: split into subqueries
             subqueries = query.split(' AND ')
+            if len(subqueries) > 1:
+                global boolean_query
+                boolean_query = True
             subresults = [execute_search(subquery, dictionary, postings, num_of_doc, docs_to_terms) for subquery in subqueries]
             # merge results of subqueries
             subresults.sort(key=len)
