@@ -330,17 +330,30 @@ def expand_query(query):
     #synonyms = list(map(lambda syn: syn.replace("_", " "), synonyms))
     return new_query
 
+def normalize_score(max_score, min_score, score):
+    """
+    normalize a score of a list of scores to range 0 - 1
+    """
+    return (score - min_score) / (max_score - min_score)
+
 def eval_and(scores1, scores2):
     """
     find intersection of scores1 and scores2:
-    add together scores for all doc_ids that exist both in scores1 and scores2, discard the rest
-    length of scores1 should be less than length of scores2
+    add together normalized scores for all doc_ids that exist both in scores1 and scores2, discard the rest
+    note: length of scores1 should be less than length of scores2
+    note: 0 scores are possible because of normalization
     """
     result = Counter()
-    for doc_id, score1 in scores1.most_common():
+    scores1_sorted = scores1.most_common()
+    max1 = scores1_sorted[0][1]
+    min1 = scores1_sorted[len(scores1) - 1][1]
+    scores2_sorted = scores2.most_common()
+    max2 = scores2_sorted[0][1]
+    min2 = scores2_sorted[len(scores2) - 1][1]
+    for doc_id, score1 in scores1_sorted:
         score2 = scores2[doc_id]
         if score2 != 0:
-            result[doc_id] = score1 + score2
+            result[doc_id] = normalize_score(max1, min1, score1) + normalize_score(max2, min2, score2)
     return result
 
 def run_search(dict_file, postings_file, queries_file, results_file):
@@ -377,7 +390,8 @@ def run_search(dict_file, postings_file, queries_file, results_file):
             subresults = [execute_search(subquery, dictionary, postings, num_of_doc, docs_to_terms) for subquery in subqueries]
             # merge results of subqueries
             subresults.sort(key=len)
-            while len(subresults) > 1:
+            result = []
+            while len(subresults) > 1 and len(subresults[0]) != 0:
                 subresults[1] = eval_and(subresults[0], subresults[1])
                 subresults.pop(0)
             # print result to output file
