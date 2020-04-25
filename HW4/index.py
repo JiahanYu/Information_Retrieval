@@ -42,7 +42,7 @@ def tokenize(paragraph):
     return words
 
 
-def stemming(words, stopword=False, lemma=False):
+def stemming(words, stopword=True, lemma=False):
     '''
     Do stemming, but the stop word is not removed, and also not do 
     lemmatization.
@@ -52,12 +52,16 @@ def stemming(words, stopword=False, lemma=False):
     '''
     ps = PorterStemmer()
     stemmed_tokens = list()  # multiple term entries in a single document are merged
+    stem_dict = defaultdict(dict)
     for w in words:
 
+        if w in stem_dict:
+            stemmed_tokens.append(token)
+            continue
         if stopword:
-            stop_words = set()
-        else:  # stopword removal
             stop_words = set(stopwords.words("english"))
+        else:  # stopword removal
+            stop_words = set()
 
         if w not in stop_words:
             # stemming
@@ -68,7 +72,7 @@ def stemming(words, stopword=False, lemma=False):
             else:
                 token = ps.stem(w)
             stemmed_tokens.append(token)
-
+            stem_dict[w] = token
     return stemmed_tokens
 
 
@@ -102,13 +106,21 @@ def build_index(in_dir, out_dict, out_postings):
     
     print(str(len(rows)) + " rows in total. ")
 
+
     rowID = 1
+    consecutive_ids = defaultdict(dict)
+    doc_num = 0
     for docID, _, content, date, court in rows:
+        if doc_num > 20:
+            break
+        consecutive_ids[doc_num] = docID
+        docID = doc_num
+        doc_num += 1
         print("processing row: " + str(rowID))
         rowID += 1
         docsInfo[docID] = [date, court]
         words = tokenize(uk2us(content))  # tokenization: content -> words
-        tokens = stemming(words, stopword = True)  # stemming
+        tokens = stemming(words, stopword=True)  # stemming
         # docs_to_terms[docID] = tokens
 
         if phrasal_query:
@@ -172,8 +184,10 @@ def build_index(in_dir, out_dict, out_postings):
 
     # write dictionary file
     with open(out_dict, mode="wb") as dictionary_file:
+
         pickle.dump(len(rows), dictionary_file)
         print("length done.")
+        pickle.dump(consecutive_ids, dictionary_file)
         pickle.dump(docsInfo, dictionary_file)
         print("docsInfo done.")
         # pickle.dump(docs_to_terms, dictionary_file)

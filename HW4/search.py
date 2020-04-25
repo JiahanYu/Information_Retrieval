@@ -208,7 +208,7 @@ def singleBubbleSortPass(docIdResultsList, courts_dict, date_sort):
     return docIdResultsList
 
 
-def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted, docs_to_terms):
+def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted):
     '''
     implementation of pseudo relevance feedback algorithm,
     takes a list of the most relevant k documents with normal retrieval and uses the terms in them to expand the query
@@ -217,9 +217,13 @@ def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted, do
     alpha = 1 # the weight of the original query terms remains the same
     beta = 0.2 # the weight of the added terms from the most relevant documents
 
-    for doc_id in most_rel_doc_id:
-        for term in docs_to_terms[doc_id]:
-            if term not in stopWords:
+    for term in dictionary:
+        try:
+            items = postings[term].items()
+        except:
+            continue
+        for doc_id, freq in items:
+            if doc_id in most_rel_doc_id:
                 if term not in feedback:
                     feedback[term] = 0
                 feedback[term] += postings[term][doc_id].weight #feedback holds the weight for each term in the new query
@@ -237,7 +241,7 @@ def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted, do
 
     return prf_query
 
-def execute_search(query, dictionary, postings, num_of_doc, docs_to_terms):
+def execute_search(query, dictionary, postings, num_of_doc):
     '''
     Compute cosine similarity between the query and each document, i.e.,
     the lnc tf-idf for the tuples (term, frequency).
@@ -293,7 +297,7 @@ def execute_search(query, dictionary, postings, num_of_doc, docs_to_terms):
     if not boolean_query and prf_on:
         ''' rank and get result'''
         most_rel_docs = [doc_id for (doc_id, _) in score.most_common(K_MOST_RELEVANT)]
-        new_query = pseudo_rel_feedback(postings,dictionary, most_rel_docs, query_vector,docs_to_terms)
+        new_query = pseudo_rel_feedback(postings,dictionary, most_rel_docs, query_vector)
 
         ''' normalizing the new query '''
         norm = sqrt(sum([i * i for i in new_query.values()], 0))
@@ -423,9 +427,11 @@ def run_search(dict_file, postings_file, query_file, results_file):
         - dict(k,v) -> token, Entry(frequency, offset)
         - postings  -> list of tuples (doc ID, token frequency)
         '''
+
         num_of_doc = pickle.load(dictionary_file)
+        real_ids = pickle.load(dictionary_file)
         docsInfo = pickle.load(dictionary_file)
-        docs_to_terms = pickle.load(dictionary_file)
+        #docs_to_terms = pickle.load(dictionary_file)
         dictionary = pickle.load(dictionary_file)
         postings = Posting(dictionary, posting_file)
 
@@ -439,7 +445,7 @@ def run_search(dict_file, postings_file, query_file, results_file):
         if len(subqueries) > 1:
             global boolean_query
             boolean_query = True
-        subresults = [execute_search(subquery, dictionary, postings, num_of_doc, docs_to_terms) for subquery in subqueries]
+        subresults = [execute_search(subquery, dictionary, postings, num_of_doc) for subquery in subqueries]
         # merge results of subqueries
         subresults.sort(key=len)
         result = []
@@ -460,6 +466,8 @@ def run_search(dict_file, postings_file, query_file, results_file):
                 #without affecting the overall ranking greatly
                 result = singleBubbleSortPass(docIdResultsList, docsInfo, dateSort)
 
+        for x in range(len(result)):
+            result[x] = real_ids[result[x]]
         # print result to output file
         print(*result, end='\n', file=q_out)
 
