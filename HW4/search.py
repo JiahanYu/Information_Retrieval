@@ -13,6 +13,7 @@ from nltk.stem import PorterStemmer
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.corpus import wordnet
+from uk2us import uk2us
 
 from utils import Entry, Posting, Token, get_tf, normalize, preprocess
 
@@ -32,7 +33,7 @@ K_MOST_RELEVANT = 5
 
 def get_term_freq(query):
     ''' 
-    Tokenize a given query, and do stemming.
+    Tokenize a given query, do stemming and uk2us translation.
     Count the term frequency in the query
 
     @param query The query string: str
@@ -46,9 +47,9 @@ def get_term_freq(query):
         phrasal_query = True
         query= query.strip().lstrip('"').rstrip('"')
     tokens = [word for sent in sent_tokenize(query) for word in word_tokenize(sent)]
-    # stem the tokens
+    # stem the tokens and do uk2us translation
     ps = PorterStemmer()
-    tokens = [ps.stem(token.lower()) for token in tokens]
+    tokens = [ps.stem(uk2us(token.lower())) for token in tokens]
     # tokens = [ps.stem(token.lower()) for token in query.split()]
     # get the term count
     term_count = defaultdict(int)
