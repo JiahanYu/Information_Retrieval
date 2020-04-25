@@ -64,9 +64,9 @@ def stemming(words, stopword=False, lemma=False):
             if lemma:
                 # lemmatization
                 lem = WordNetLemmatizer()
-                token = ps.stem(uk2us(lem.lemmatize(w, "v")))
+                token = ps.stem(lem.lemmatize(w, "v"))
             else:
-                token = ps.stem(uk2us(w))
+                token = ps.stem(w)
             stemmed_tokens.append(token)
 
     return stemmed_tokens
@@ -98,7 +98,7 @@ def build_index(in_dir, out_dict, out_postings):
     postings = defaultdict(dict)
     tokens = list()
     docsInfo = defaultdict(dict)
-    docs_to_terms = defaultdict(dict)
+    # docs_to_terms = defaultdict(dict)
     
     print(str(len(rows)) + " rows in total. ")
 
@@ -109,9 +109,9 @@ def build_index(in_dir, out_dict, out_postings):
         date = rows[rowID][3]
         court = rows[rowID][4]
         docsInfo[docID] = [date, court]
-        words = tokenize(content)  # tokenization: content -> words
-        tokens = stemming(words)  # stemming
-        docs_to_terms[docID] = tokens
+        words = tokenize(uk2us(content))  # tokenization: content -> words
+        tokens = stemming(words, stopword = True)  # stemming
+        # docs_to_terms[docID] = tokens
 
         if phrasal_query:
             token_len = defaultdict(list)
@@ -171,15 +171,20 @@ def build_index(in_dir, out_dict, out_postings):
                     this token
             '''
             offset = postings_file.tell()
-            size = postings_file.write(pickle.dumps(value))
+            posting_data = pickle.dumps(value)
+            size = postings_file.write(posting_data)
             dictionary[key] = Entry(len(value), offset, size)
 
     # write dictionary file
     with open(out_dict, mode="wb") as dictionary_file:
         pickle.dump(len(rows), dictionary_file)
+        print("length done.")
         pickle.dump(docsInfo, dictionary_file)
-        pickle.dump(docs_to_terms, dictionary_file)
+        print("docsInfo done.")
+        # pickle.dump(docs_to_terms, dictionary_file)
+        # print("docs_to_terms done")
         pickle.dump(dictionary, dictionary_file)
+        print("dictionary done")
 
 
 def usage():
