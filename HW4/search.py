@@ -1,38 +1,44 @@
 #!/usr/bin/python3
+import array
 import getopt
 import re
 import string
 import sys
 from collections import Counter, defaultdict
 from math import log10 as log
-import array
-
+from math import sqrt
 import nltk
-from nltk.corpus import stopwords
+from nltk.corpus import stopwords, wordnet
 from nltk.stem import PorterStemmer
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.tokenize import sent_tokenize, word_tokenize
-from nltk.corpus import wordnet
 
-from utils import Entry, Posting, Token, get_tf, normalize, preprocess
+from uk2us import uk2us
+from utils import Entry, Posting, Token, get_tf, normalize, preprocess, getCourtsPriority
 
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
 
-
+boolean_query = False
 phrasal_query = False
 
-lesk_on = False #set for using lesk algorithm
-expand = False #set for using query expansion
-
+lesk_on = True # set for using lesk algorithm
+expand = False # set for using query expansion
+prf_on = True # set for pseudo relevance feedback
+court_rank = False  # sort according to the courts hierarchy
+date_rank = True  # sort by latest date first after ranking by courts priority
 
 K_MOST_RELEVANT = 5
 
-def get_term_freq(query):
+stemmer = PorterStemmer()
+stopWords = set(stopwords.words('english'))
+
+
+def get_term_freq(query, stopword=True):
     ''' 
-    Tokenize a given query, and do stemming.
+    Tokenize a given query, do stemming and uk2us translation.
     Count the term frequency in the query
 
     @param query The query string: str
@@ -46,19 +52,28 @@ def get_term_freq(query):
         phrasal_query = True
         query= query.strip().lstrip('"').rstrip('"')
     tokens = [word for sent in sent_tokenize(query) for word in word_tokenize(sent)]
-    # stem the tokens
+
+    # stem the tokens and do uk2us translation
     ps = PorterStemmer()
-    tokens = [ps.stem(token.lower()) for token in tokens]
-    # tokens = [ps.stem(token.lower()) for token in query.split()]
+
+    filteredList = []
+    for token in tokens:
+        if stopword:
+            # Remove all stop words
+            if token not in stopWords:
+                filteredList.append(ps.stem(uk2us(token.lower())))
+        else:
+            filteredList.append(ps.stem(uk2us(token.lower())))
+
     # get the term count
     term_count = defaultdict(int)
-    for token in tokens:
+    for token in filteredList:
         term_count[token] += 1
 
     # get the set of tokens
-    terms = list(set(tokens))
+    terms = list(set(filteredList))
 
-    return tokens, terms, term_count
+    return filteredList, terms, term_count
 
 def is_boolean(query):
     '''
@@ -169,6 +184,29 @@ def verify(candidate, tokens, postings_dict):
     return ans
 
 
+def singleBubbleSortPass(docIdResultsList, courts_dict, date_sort):
+    ''' Bubbles documents with higher courts priority up the list 
+        date=True means sorting by higher courts priority first, then date second
+    '''
+    for x in range(len(docIdResultsList) - 1):
+        docId1 = docIdResultsList[x]
+        docId2 = docIdResultsList[x + 1]
+        compare = getCourtsPriority(
+            docId2, courts_dict) - getCourtsPriority(docId1, courts_dict)
+        if compare > 0:
+            # Swap the docId if doc2 has higher court priority
+            docIdResultsList[x] = docId2
+            docIdResultsList[x + 1] = docId1
+        elif compare == 0:
+            if not date_rank:
+                pass
+            # retrieve date as a string like '1998-08-03 00:00:00'
+            if courts_dict[str(docId2)][0] > courts_dict[str(docId1)][0]:
+                docIdResultsList[x] = docId2
+                docIdResultsList[x + 1] = docId1
+
+    return docIdResultsList
+
 
 def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted, docs_to_terms):
     '''
@@ -181,9 +219,10 @@ def pseudo_rel_feedback(postings,dictionary, most_rel_doc_id, query_weighted, do
 
     for doc_id in most_rel_doc_id:
         for term in docs_to_terms[doc_id]:
-            if term not in feedback:
-                feedback[term] = 0
-            feedback[term] += postings[term][doc_id].weight #feedback holds the weight for each term in the new query
+            if term not in stopWords:
+                if term not in feedback:
+                    feedback[term] = 0
+                feedback[term] += postings[term][doc_id].weight #feedback holds the weight for each term in the new query
 
     prf_query = {}
     for term in query_weighted:
@@ -218,18 +257,21 @@ def execute_search(query, dictionary, postings, num_of_doc, docs_to_terms):
     Get tokens (stemmed words in the query), terms (set of tokens), 
     and the dictionary of term frequency in the query: DefaultDict[str, int]
     '''
+
+    if not boolean_query:
+        if lesk_on:
+            query = lesk(query)
+            print(query)
+        if expand:
+            query = expand_query(query)
+            print(query)
+
     tokens, terms, term_freq = get_term_freq(query)
-    
+
     if phrasal_query:
         doc_candidate = intersection(terms, postings)
         doc_to_rank = verify(doc_candidate, tokens, postings)
 
-    if lesk_on:
-        query = lesk( query)
-        print(query)
-    if expand:
-        query = expand_query(query)
-        print(query)
     # Compute cosine similarity between the query and each document,
     # with the weights follow the tf×idf calculation, and then do
     # normalization
@@ -241,29 +283,36 @@ def execute_search(query, dictionary, postings, num_of_doc, docs_to_terms):
     score = Counter()
     query_vector = {}
     for ((term, _), q_weight) in zip(term_freq.items(), query_weight):
-        query_vector[term ] = q_weight
+        query_vector[term] = q_weight
         if q_weight > 0:
             ''' get the postings lists of the term, update the score '''
             for doc_id, value in postings[term].items():
                 if phrasal_query and (doc_id not in doc_to_rank):
                     continue
                 score[doc_id] += q_weight * value.weight
-   # return [doc_id for (doc_id, _) in score.most_common(NB_MOST_RELEVENT)]
-    ''' rank and get result'''
-    most_rel_docs= [doc_id for (doc_id, _) in score.most_common(K_MOST_RELEVANT)]
-    new_query = pseudo_rel_feedback(postings,dictionary, most_rel_docs, query_vector,docs_to_terms)
-    #print(new_query)
-    score = Counter()
-    for term in new_query:
-        try:
-            items = postings[term].items()
-        except:
-            continue
-        for doc_id, freq in items:
-            if phrasal_query and (doc_id not in doc_to_rank):
+    if not boolean_query and prf_on:
+        ''' rank and get result'''
+        most_rel_docs = [doc_id for (doc_id, _) in score.most_common(K_MOST_RELEVANT)]
+        new_query = pseudo_rel_feedback(postings,dictionary, most_rel_docs, query_vector,docs_to_terms)
+
+        ''' normalizing the new query '''
+        norm = sqrt(sum([i * i for i in new_query.values()], 0))
+        for term in new_query:
+            new_query[term] = new_query[term] / norm
+
+        score = Counter()
+        for term in new_query:
+            try:
+                items = postings[term].items()
+            except:
                 continue
-            score[doc_id] += new_query[term] * value.weight
+            for doc_id, freq in items:
+                if phrasal_query and (doc_id not in doc_to_rank):
+                    continue
+                score[doc_id] += new_query[term] * value.weight
     return score
+
+
 
 def lesk(query):
     '''
@@ -330,20 +379,33 @@ def expand_query(query):
     #synonyms = list(map(lambda syn: syn.replace("_", " "), synonyms))
     return new_query
 
+def normalize_score(max_score, min_score, score):
+    """
+    normalize a score of a list of scores to range 0 - 1
+    """
+    return (score - min_score) / (max_score - min_score)
+
 def eval_and(scores1, scores2):
     """
     find intersection of scores1 and scores2:
-    add together scores for all doc_ids that exist both in scores1 and scores2, discard the rest
-    length of scores1 should be less than length of scores2
+    add together normalized scores for all doc_ids that exist both in scores1 and scores2, discard the rest
+    note: length of scores1 should be less than length of scores2
+    note: 0 scores are possible because of normalization
     """
     result = Counter()
-    for doc_id, score1 in scores1.most_common():
+    scores1_sorted = scores1.most_common()
+    max1 = scores1_sorted[0][1]
+    min1 = scores1_sorted[len(scores1) - 1][1]
+    scores2_sorted = scores2.most_common()
+    max2 = scores2_sorted[0][1]
+    min2 = scores2_sorted[len(scores2) - 1][1]
+    for doc_id, score1 in scores1_sorted:
         score2 = scores2[doc_id]
         if score2 != 0:
-            result[doc_id] = score1 + score2
+            result[doc_id] = normalize_score(max1, min1, score1) + normalize_score(max2, min2, score2)
     return result
 
-def run_search(dict_file, postings_file, queries_file, results_file):
+def run_search(dict_file, postings_file, query_file, results_file):
     """
     using the given dictionary file and postings file,
     perform searching on the given queries file and output the results to a file
@@ -352,13 +414,13 @@ def run_search(dict_file, postings_file, queries_file, results_file):
 
     with open(dict_file, mode="rb") as dictionary_file,\
             open(postings_file, mode="rb") as posting_file,\
-            open(queries_file, encoding="utf8") as q_in,\
+            open(query_file, encoding="utf8") as q_in,\
             open(results_file, mode="w", encoding="utf8") as q_out:
 
         ''' 
         load dictionary and postings 
         - num_of_doc -> The number of the documents indexed
-        - dict(k,v) -> token, Enftry(frequency, offset, size)
+        - dict(k,v) -> token, Entry(frequency, offset)
         - postings  -> list of tuples (doc ID, token frequency)
         '''
         num_of_doc = pickle.load(dictionary_file)
@@ -371,18 +433,35 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         process query, and write the query result (i.e., the 10 
         most relevant doc IDs) to the result file 
         '''
-        for query in q_in:
-            # handle boolean query: split into subqueries
-            subqueries = query.split(' AND ')
-            subresults = [execute_search(subquery, dictionary, postings, num_of_doc, docs_to_terms) for subquery in subqueries]
-            # merge results of subqueries
-            subresults.sort(key=len)
-            while len(subresults) > 1:
-                subresults[1] = eval_and(subresults[0], subresults[1])
-                subresults.pop(0)
-            # print result to output file
-            result = [doc_id for (doc_id, _) in subresults[0].most_common()]
-            print(*result, end='\n', file=q_out)
+        query = q_in.readline().strip()
+        # handle boolean query: split into subqueries
+        subqueries = query.split(' AND ')
+        if len(subqueries) > 1:
+            global boolean_query
+            boolean_query = True
+        subresults = [execute_search(subquery, dictionary, postings, num_of_doc, docs_to_terms) for subquery in subqueries]
+        # merge results of subqueries
+        subresults.sort(key=len)
+        result = []
+        while len(subresults) > 1 and len(subresults[0]) != 0:
+            subresults[1] = eval_and(subresults[0], subresults[1])
+            subresults.pop(0)
+
+        result = [doc_id for (doc_id, score) in subresults[0].most_common()]
+
+        if court_rank:
+            topList = sorted(([subresults[0][docId], docId]
+                                for docId in result), key=lambda pair: (-pair[0], pair[1]))
+            # print(topList)
+            docIdResultsList = [pair[1] for pair in topList]
+
+            for x in range(10):
+                #Use bubble sort passes to "bubble" higher priority court documents up slightly
+                #without affecting the overall ranking greatly
+                result = singleBubbleSortPass(docIdResultsList, docsInfo, dateSort)
+
+        # print result to output file
+        print(*result, end='\n', file=q_out)
 
 def usage():
     # test on my PC: $python3 search.py -d dictionary.txt -p postings.txt -q queries.txt -o output.txt
@@ -395,28 +474,30 @@ def usage():
           "  -q  queries file path\n"
           "  -o  search results file path\n")
 
-dictionary_file = postings_file = file_of_queries = output_file_of_results = None
+if __name__ == "__main__":
 
-try:
-    opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:x')
-except getopt.GetoptError:
-    usage()
-    sys.exit(2)
+    dictionary_file = postings_file = file_of_queries = output_file_of_results = None
 
-for o, a in opts:
-    if o == '-d':
-        dictionary_file = a
-    elif o == '-p':
-        postings_file = a
-    elif o == '-q':
-        file_of_queries = a
-    elif o == '-o':
-        file_of_output = a
-    else:
-        assert False, "unhandled option"
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:x')
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
 
-if dictionary_file == None or postings_file == None or file_of_queries == None or file_of_output == None:
-    usage()
-    sys.exit(2)
+    for o, a in opts:
+        if o == '-d':
+            dictionary_file = a
+        elif o == '-p':
+            postings_file = a
+        elif o == '-q':
+            file_of_queries = a
+        elif o == '-o':
+            file_of_output = a
+        else:
+            assert False, "unhandled option"
 
-run_search(dictionary_file, postings_file, file_of_queries, file_of_output)
+    if dictionary_file == None or postings_file == None or file_of_queries == None or file_of_output == None:
+        usage()
+        sys.exit(2)
+
+    run_search(dictionary_file, postings_file, file_of_queries, file_of_output)
