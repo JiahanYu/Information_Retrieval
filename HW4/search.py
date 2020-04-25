@@ -386,22 +386,22 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         process query, and write the query result (i.e., the 10 
         most relevant doc IDs) to the result file 
         '''
-        for query in q_in:
-            # handle boolean query: split into subqueries
-            subqueries = query.split(' AND ')
-            if len(subqueries) > 1:
-                global boolean_query
-                boolean_query = True
-            subresults = [execute_search(subquery, dictionary, postings, num_of_doc, docs_to_terms) for subquery in subqueries]
-            # merge results of subqueries
-            subresults.sort(key=len)
-            result = []
-            while len(subresults) > 1 and len(subresults[0]) != 0:
-                subresults[1] = eval_and(subresults[0], subresults[1])
-                subresults.pop(0)
-            # print result to output file
-            result = [doc_id for (doc_id, _) in subresults[0].most_common()]
-            print(*result, end='\n', file=q_out)
+        query = q_in.readline().strip()
+        # handle boolean query: split into subqueries
+        subqueries = query.split(' AND ')
+        if len(subqueries) > 1:
+            global boolean_query
+            boolean_query = True
+        subresults = [execute_search(subquery, dictionary, postings, num_of_doc, docs_to_terms) for subquery in subqueries]
+        # merge results of subqueries
+        subresults.sort(key=len)
+        result = []
+        while len(subresults) > 1 and len(subresults[0]) != 0:
+            subresults[1] = eval_and(subresults[0], subresults[1])
+            subresults.pop(0)
+        # print result to output file
+        result = [doc_id for (doc_id, _) in subresults[0].most_common()]
+        print(*result, end='\n', file=q_out)
 
 def usage():
     # test on my PC: $python3 search.py -d dictionary.txt -p postings.txt -q queries.txt -o output.txt
