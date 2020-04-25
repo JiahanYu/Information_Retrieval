@@ -102,12 +102,10 @@ def build_index(in_dir, out_dict, out_postings):
     
     print(str(len(rows)) + " rows in total. ")
 
-    for rowID in range(len(rows)):
+    rowID = 1
+    for docID, _, content, date, court in rows:
         print("processing row: " + str(rowID))
-        docID = rows[rowID][0]
-        content = rows[rowID][2]
-        date = rows[rowID][3]
-        court = rows[rowID][4]
+        rowID += 1
         docsInfo[docID] = [date, court]
         words = tokenize(content)  # tokenization: content -> words
         tokens = stemming(words, stopword = True)  # stemming
@@ -131,11 +129,11 @@ def build_index(in_dir, out_dict, out_postings):
 
             term_pos += 1
 
-        ''' 
+        '''
         Generate weighted token frequency.
         
         Generate dictionary of key -> token, value -> a dict with k,v 
-        as file_name, (frequency, weighted_token_frequency)
+        as file_name, weighted_token_frequency
         '''
         if phrasal_query:
 
@@ -143,20 +141,20 @@ def build_index(in_dir, out_dict, out_postings):
                 [get_tf(y[0]) for (x, y) in token_len.items()])
 
             for ((token, freq), w_tf) in zip(token_len.items(), weighted_tokenfreq):
-                postings[token][docID] = PhrasalToken(freq[0], freq[1], w_tf)
+                postings[token][docID] = PhrasalToken(freq[1], w_tf)
         else:
 
             weighted_tokenfreq = normalize(
                 [get_tf(y) for (x, y) in token_len.items()])
 
             for ((token, freq), w_tf) in zip(token_len.items(), weighted_tokenfreq):
-                postings[token][docID] = Token(freq, w_tf)
+                postings[token][docID] = Token(w_tf)
 
     ''' 
     Output dictionary and postings files 
     
     - Dictionary file stores all the tokens, with their doc frequency, the offset 
-    in the postings file, and the size (in bytes).
+    in the postings file.
     - Postings file stores the list of tuples -> (document ID, term freq).
     '''
     # write postings file
@@ -167,13 +165,10 @@ def build_index(in_dir, out_dict, out_postings):
             len(value) := the document frequency of the token
                        := how many times the token appears in all documents
             offset := current writing position of the postings file
-            size := the number of characters written in postings file, in terms of 
-                    this token
             '''
             offset = postings_file.tell()
-            posting_data = pickle.dumps(value)
-            size = postings_file.write(posting_data)
-            dictionary[key] = Entry(len(value), offset, size)
+            pickle.dump(value, postings_file)
+            dictionary[key] = Entry(len(value), offset)
 
     # write dictionary file
     with open(out_dict, mode="wb") as dictionary_file:
