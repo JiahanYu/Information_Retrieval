@@ -358,7 +358,7 @@ def eval_and(scores1, scores2):
             result[doc_id] = normalize_score(max1, min1, score1) + normalize_score(max2, min2, score2)
     return result
 
-def run_search(dict_file, postings_file, queries_file, results_file):
+def run_search(dict_file, postings_file, query_file, results_file):
     """
     using the given dictionary file and postings file,
     perform searching on the given queries file and output the results to a file
@@ -367,13 +367,13 @@ def run_search(dict_file, postings_file, queries_file, results_file):
 
     with open(dict_file, mode="rb") as dictionary_file,\
             open(postings_file, mode="rb") as posting_file,\
-            open(queries_file, encoding="utf8") as q_in,\
+            open(query_file, encoding="utf8") as q_in,\
             open(results_file, mode="w", encoding="utf8") as q_out:
 
         ''' 
         load dictionary and postings 
         - num_of_doc -> The number of the documents indexed
-        - dict(k,v) -> token, Enftry(frequency, offset, size)
+        - dict(k,v) -> token, Entry(frequency, offset)
         - postings  -> list of tuples (doc ID, token frequency)
         '''
         num_of_doc = pickle.load(dictionary_file)
@@ -414,28 +414,30 @@ def usage():
           "  -q  queries file path\n"
           "  -o  search results file path\n")
 
-dictionary_file = postings_file = file_of_queries = output_file_of_results = None
+if __name__ == "__main__":
 
-try:
-    opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:x')
-except getopt.GetoptError:
-    usage()
-    sys.exit(2)
+    dictionary_file = postings_file = file_of_queries = output_file_of_results = None
 
-for o, a in opts:
-    if o == '-d':
-        dictionary_file = a
-    elif o == '-p':
-        postings_file = a
-    elif o == '-q':
-        file_of_queries = a
-    elif o == '-o':
-        file_of_output = a
-    else:
-        assert False, "unhandled option"
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:x')
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
 
-if dictionary_file == None or postings_file == None or file_of_queries == None or file_of_output == None:
-    usage()
-    sys.exit(2)
+    for o, a in opts:
+        if o == '-d':
+            dictionary_file = a
+        elif o == '-p':
+            postings_file = a
+        elif o == '-q':
+            file_of_queries = a
+        elif o == '-o':
+            file_of_output = a
+        else:
+            assert False, "unhandled option"
 
-run_search(dictionary_file, postings_file, file_of_queries, file_of_output)
+    if dictionary_file == None or postings_file == None or file_of_queries == None or file_of_output == None:
+        usage()
+        sys.exit(2)
+
+    run_search(dictionary_file, postings_file, file_of_queries, file_of_output)

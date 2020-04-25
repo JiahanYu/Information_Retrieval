@@ -79,17 +79,16 @@ Entry := an entry of the dictionary, containing the frequency of
 the token, the offset of the postings file, the size of the list
 (of docIDs) corresponding inside the postings file
 '''
-Entry = namedtuple("Entry", ['frequency', 'offset', 'size'])
+Entry = namedtuple("Entry", ['frequency', 'offset'])
 Entry.__new__.__defaults__ = (0, 0, 0)
 
 
 '''
-Token := an entry of the posting, containing the term frequency and 
-the weight inside a given document
+Token := an entry of the posting, containing the weight inside a given document
 '''
-Token = namedtuple("Token", ['frequency', 'weight'])
+Token = namedtuple("Token", ['weight'])
 Token.__new__.__defaults__ = (0, 0)
-PhrasalToken = namedtuple("PhrasalToken", ['frequency', "pos", 'weight'])
+PhrasalToken = namedtuple("PhrasalToken", ["pos", 'weight'])
 PhrasalToken.__new__.__defaults__ = (0, [], 0)
 
 ############################################
@@ -128,6 +127,6 @@ class Posting(object):
         if term in self.dictionary:
             val = self.dictionary[term]  # val: Entry
             self.posting_file.seek(val.offset)
-            return pickle.loads(self.posting_file.read(val.size))
+            return pickle.load(self.posting_file)
         else:
             return Token(0, 0)
