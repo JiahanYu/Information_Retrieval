@@ -64,9 +64,9 @@ def stemming(words, stopword=False, lemma=False):
             if lemma:
                 # lemmatization
                 lem = WordNetLemmatizer()
-                token = ps.stem(uk2us(lem.lemmatize(w, "v")))
+                token = ps.stem(lem.lemmatize(w, "v"))
             else:
-                token = ps.stem(uk2us(w))
+                token = ps.stem(w)
             stemmed_tokens.append(token)
 
     return stemmed_tokens
@@ -107,7 +107,7 @@ def build_index(in_dir, out_dict, out_postings):
         print("processing row: " + str(rowID))
         rowID += 1
         docsInfo[docID] = [date, court]
-        words = tokenize(content)  # tokenization: content -> words
+        words = tokenize(uk2us(content))  # tokenization: content -> words
         tokens = stemming(words, stopword = True)  # stemming
         # docs_to_terms[docID] = tokens
 
