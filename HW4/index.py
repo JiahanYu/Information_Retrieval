@@ -101,10 +101,16 @@ def build_index(in_dir, out_dict, out_postings):
     # docs_to_terms = defaultdict(dict)
     
     print(str(len(rows)) + " rows in total. ")
-
+    consecutive_ids = defaultdict(dict)
+    doc_num = 0
     for rowID in range(len(rows)):
+        if doc_num > 20:
+            break
         print("processing row: " + str(rowID))
         docID = rows[rowID][0]
+        consecutive_ids[doc_num] = docID
+        docID = doc_num
+        doc_num += 1
         content = rows[rowID][2]
         date = rows[rowID][3]
         court = rows[rowID][4]
@@ -143,7 +149,7 @@ def build_index(in_dir, out_dict, out_postings):
                 [get_tf(y[0]) for (x, y) in token_len.items()])
 
             for ((token, freq), w_tf) in zip(token_len.items(), weighted_tokenfreq):
-                postings[token][docID] = PhrasalToken(freq[0], freq[1], w_tf)
+                postings[token][docID] = PhrasalToken(freq[1], w_tf)
         else:
 
             weighted_tokenfreq = normalize(
@@ -173,12 +179,14 @@ def build_index(in_dir, out_dict, out_postings):
             offset = postings_file.tell()
             posting_data = pickle.dumps(value)
             size = postings_file.write(posting_data)
-            dictionary[key] = Entry(len(value), offset, size)
+            dictionary[key] = Entry(len(value), offset)
 
     # write dictionary file
     with open(out_dict, mode="wb") as dictionary_file:
+
         pickle.dump(len(rows), dictionary_file)
         print("length done.")
+        pickle.dump(consecutive_ids, dictionary_file)
         pickle.dump(docsInfo, dictionary_file)
         print("docsInfo done.")
         # pickle.dump(docs_to_terms, dictionary_file)
