@@ -27,21 +27,13 @@ phrasal_query = False
 lesk_on = False #set for using lesk algorithm
 expand = False #set for using query expansion
 court_rank = False  # sort according to the courts hierarchy
+date_rank = True  # sort by latest date first after ranking by courts priority
 
 K_MOST_RELEVANT = 5
 
 stemmer = PorterStemmer()
 stopWords = set(stopwords.words('english'))
 
-
-def filterStopWords(termsList):
-    ''' unused since it is wrapped in the get_term_freq() '''
-    #Remove all stop words from list of terms
-    filteredList = []
-    for term in termsList:
-        if term not in stopWords:
-            filteredList.append(term)
-    return filteredList
 
 def get_term_freq(query, stopword=True):
     ''' 
@@ -191,15 +183,27 @@ def verify(candidate, tokens, postings_dict):
     return ans
 
 
-def singleBubbleSortPass(docIdResultsList, courts_dict):
-    ''' Bubbles documents with higher courts priority up the list '''
+def singleBubbleSortPass(docIdResultsList, courts_dict, date_sort):
+    ''' Bubbles documents with higher courts priority up the list 
+        date=True means sorting by higher courts priority first, then date second
+    '''
     for x in range(len(docIdResultsList) - 1):
         docId1 = docIdResultsList[x]
         docId2 = docIdResultsList[x + 1]
-        if getCourtsPriority(docId2, courts_dict) > getCourtsPriority(docId1, courts_dict):
-            # Swap the docId
+        compare = getCourtsPriority(
+            docId2, courts_dict) - getCourtsPriority(docId1, courts_dict)
+        if compare > 0:
+            # Swap the docId if doc2 has higher court priority
             docIdResultsList[x] = docId2
             docIdResultsList[x + 1] = docId1
+        elif compare == 0:
+            if not date_rank:
+                pass
+            # retrieve date as a string like '1998-08-03 00:00:00'
+            if courts_dict[str(docId2)][0] > courts_dict[str(docId1)][0]:
+                docIdResultsList[x] = docId2
+                docIdResultsList[x + 1] = docId1
+
     return docIdResultsList
 
 
@@ -443,7 +447,7 @@ def run_search(dict_file, postings_file, queries_file, results_file):
             for x in range(10):
                 #Use bubble sort passes to "bubble" higher priority court documents up slightly
                 #without affecting the overall ranking greatly
-                result = singleBubbleSortPass(docIdResultsList, docsInfo)
+                result = singleBubbleSortPass(docIdResultsList, docsInfo, dateSort)
 
         # print result to output file
         print(*result, end='\n', file=q_out)
