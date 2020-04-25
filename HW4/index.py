@@ -42,7 +42,7 @@ def tokenize(paragraph):
     return words
 
 
-def stemming(words, stopword=False, lemma=False):
+def stemming(words, stopword=True, lemma=False):
     '''
     Do stemming, but the stop word is not removed, and also not do 
     lemmatization.
@@ -52,12 +52,16 @@ def stemming(words, stopword=False, lemma=False):
     '''
     ps = PorterStemmer()
     stemmed_tokens = list()  # multiple term entries in a single document are merged
+    stem_dict = defaultdict(dict)
     for w in words:
 
+        if w in stem_dict:
+            stemmed_tokens.append(token)
+            continue
         if stopword:
-            stop_words = set()
-        else:  # stopword removal
             stop_words = set(stopwords.words("english"))
+        else:  # stopword removal
+            stop_words = set()
 
         if w not in stop_words:
             # stemming
@@ -68,7 +72,7 @@ def stemming(words, stopword=False, lemma=False):
             else:
                 token = ps.stem(w)
             stemmed_tokens.append(token)
-
+            stem_dict[w] = token
     return stemmed_tokens
 
 

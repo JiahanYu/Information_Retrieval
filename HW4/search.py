@@ -465,7 +465,7 @@ def run_search(dict_file, postings_file, query_file, results_file):
                 #Use bubble sort passes to "bubble" higher priority court documents up slightly
                 #without affecting the overall ranking greatly
                 result = singleBubbleSortPass(docIdResultsList, docsInfo, dateSort)
-                
+
         for x in range(len(result)):
             result[x] = real_ids[result[x]]
         # print result to output file
