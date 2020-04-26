@@ -10,7 +10,7 @@ from nltk.stem import PorterStemmer
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.tokenize import RegexpTokenizer, sent_tokenize, word_tokenize
 
-from utils import Entry, Token, PhrasalToken, normalize, get_tf
+from utils import Entry, Token, PhrasalToken, normalize, get_tf, preprocess
 from uk2us import uk2us
 
 import csv
@@ -33,16 +33,15 @@ def tokenize(paragraph):
     (2) Remove fullstops by using "sent_tokenize" and "word_tokenize" 
         in the tokenising step.
     '''
-    words = [word for sent in sent_tokenize(paragraph.lower())
+    words = [word for sent in sent_tokenize((paragraph.lower()))
              for word in word_tokenize(sent)]
 
     # tokenizer = nltk.RegexpTokenizer(r"\w+")
     # words = tokenizer.tokenize(text)
-
     return words
 
 
-def stemming(words, stopword=True, lemma=False):
+def stemming(words, stopword=True, lemma=True):
     '''
     Do stemming, but the stop word is not removed, and also not do 
     lemmatization.
@@ -56,12 +55,13 @@ def stemming(words, stopword=True, lemma=False):
     for w in words:
 
         if w in stem_dict:
-            stemmed_tokens.append(token)
+            stemmed_tokens.append(stem_dict[w])
             continue
         if stopword:
             stop_words = set(stopwords.words("english"))
         else:  # stopword removal
             stop_words = set()
+
 
         if w not in stop_words:
             # stemming
@@ -111,7 +111,7 @@ def build_index(in_dir, out_dict, out_postings):
     consecutive_ids = defaultdict(dict)
     doc_num = 0
     for docID, _, content, date, court in rows:
-        if doc_num > 20:
+        if doc_num > 10000:
             break
         consecutive_ids[doc_num] = docID
         docID = doc_num
