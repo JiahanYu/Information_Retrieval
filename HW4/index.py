@@ -53,7 +53,6 @@ def stemming(words, stopword=True, lemma=True):
     stemmed_tokens = list()  # multiple term entries in a single document are merged
     stem_dict = defaultdict(dict)
     for w in words:
-
         if w in stem_dict:
             stemmed_tokens.append(stem_dict[w])
             continue
@@ -111,8 +110,6 @@ def build_index(in_dir, out_dict, out_postings):
     consecutive_ids = defaultdict(dict)
     doc_num = 0
     for docID, _, content, date, court in rows:
-        if doc_num > 10000:
-            break
         consecutive_ids[doc_num] = docID
         docID = doc_num
         doc_num += 1
