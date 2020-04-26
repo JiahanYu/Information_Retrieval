@@ -56,7 +56,7 @@ def getCourtsPriority(docId, courts_dict):
     except KeyError as e:
         return 0
 
-def preprocess(raw_text, removedigit=False, splitcombined=False, removepunc=False):
+def preprocess(raw_text, removedigit=False, splitcombined=False, removepunc=True):
     ''' 
     split conjunctions; remove punctuations, digits; case-folding all words 
 
