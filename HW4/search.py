@@ -425,7 +425,7 @@ def run_search(dict_file, postings_file, query_file, results_file):
         '''
         num_of_doc = pickle.load(dictionary_file)
         docsInfo = pickle.load(dictionary_file)
-        docs_to_terms = pickle.load(dictionary_file)
+        # docs_to_terms = pickle.load(dictionary_file)
         dictionary = pickle.load(dictionary_file)
         postings = Posting(dictionary, posting_file)
 
