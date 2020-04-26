@@ -24,13 +24,13 @@ except ImportError:
 boolean_query = False
 phrasal_query = False
 
-lesk_on = True # set for using lesk algorithm
+lesk_on = False # set for using lesk algorithm
 expand = False # set for using query expansion
 prf_on = True # set for pseudo relevance feedback
-court_rank = False  # sort according to the courts hierarchy
-date_rank = True  # sort by latest date first after ranking by courts priority
+court_rank = True  # sort according to the courts hierarchy
+date_rank = False  # sort by latest date first after ranking by courts priority
 
-K_MOST_RELEVANT = 5
+K_MOST_RELEVANT = 3
 
 stemmer = PorterStemmer()
 stopWords = set(stopwords.words('english'))
@@ -184,7 +184,7 @@ def verify(candidate, tokens, postings_dict):
     return ans
 
 
-def singleBubbleSortPass(docIdResultsList, courts_dict, date_sort):
+def singleBubbleSortPass(docIdResultsList, courts_dict, date_rank):
     ''' Bubbles documents with higher courts priority up the list 
         date=True means sorting by higher courts priority first, then date second
     '''
@@ -199,7 +199,7 @@ def singleBubbleSortPass(docIdResultsList, courts_dict, date_sort):
             docIdResultsList[x + 1] = docId1
         elif compare == 0:
             if not date_rank:
-                pass
+                continue
             # retrieve date as a string like '1998-08-03 00:00:00'
             if courts_dict[str(docId2)][0] > courts_dict[str(docId1)][0]:
                 docIdResultsList[x] = docId2
@@ -265,10 +265,10 @@ def execute_search(query, dictionary, postings, num_of_doc):
     if not boolean_query:
         if lesk_on:
             query = lesk(query)
-            print(query)
+            #print(query)
         if expand:
             query = expand_query(query)
-            print(query)
+            #print(query)
 
     tokens, terms, term_freq = get_term_freq(query)
 
@@ -464,7 +464,7 @@ def run_search(dict_file, postings_file, query_file, results_file):
             for x in range(10):
                 #Use bubble sort passes to "bubble" higher priority court documents up slightly
                 #without affecting the overall ranking greatly
-                result = singleBubbleSortPass(docIdResultsList, docsInfo, dateSort)
+                result = singleBubbleSortPass(docIdResultsList, docsInfo, date_rank)
 
         for x in range(len(result)):
             result[x] = real_ids[result[x]]
