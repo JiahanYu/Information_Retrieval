@@ -1,0 +1,11 @@
+1 https://en.wikipedia.org/wiki/Category:Indexes_of_computer_topics
+223 https://en.wikipedia.org/wiki/BlackBerry_Tablet_OS
+350 https://en.wikipedia.org/wiki/BlackBerry_Porsche_Design_P%279981
+340 https://en.wikipedia.org/wiki/BlackBerry_Curve
+1015 https://en.wikipedia.org/wiki/Sencha_Touch
+238 https://en.wikipedia.org/wiki/Adobe_Flash_Lite
+301 https://en.wikipedia.org/wiki/Trapster_(speed_trap_sharing_system)
+294 https://en.wikipedia.org/wiki/Shazam_(service)
+239 https://en.wikipedia.org/wiki/Foursquare_(service)
+8 https://en.wikipedia.org/wiki/Android_(operating_system)
+84 https://en.wikipedia.org/wiki/Android_Open_Source_Project

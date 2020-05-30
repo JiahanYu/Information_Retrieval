@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="CS3245 Sem II AY 2019/20 - Homework #4 Legal Case Retrieval Mini Project">
+    <meta name="author" content="ZHAO Jin">
+
+    <STYLE>
+body {
+  padding-top: 60px;
+}
+    </STYLE>
+    <title>CS3245 Information Retrieval &#187; Homework #5 Web Search Engine for Computer Science</title>
+
+    <!--
+	color scheme from kuler - monochrome blue
+15457F
+76B4FF
+2A89FF
+1A477F
+216ECC
+-->
+    
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.3/css/bootstrap.min.css" integrity="sha384-MIwDKRSSImVFAZCVLtU0LMDdON6KVCrZHyVQQj6e8wIEJkW4tvwqXrbMIya1vriY" crossorigin="anonymous">
+
+    <!-- FontAwesome CSS Icons -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    
+    <!-- Custom styles for this template -->
+    <link href="https://www.comp.nus.edu.sg/~kanmy/css/docs2017.css" rel="stylesheet">
+    
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+	<script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+	<script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+	<![endif]-->
+  </head>
+    
+<!--#include file="header.html" -->
+    <div class="container-fluid">
+      <div class="jumbotron">
+	<div class="container-fluid">
+	  <div class="row">
+	    <div class="col-xs-3">
+	      <a href="http://www.flickr.com/people/jacalynsnana/"><img src="jacalynsnana.jpg" height="150" width="150" title="Credits: jacalynsnana@flickr" class="img-fluid"/></a><a href="http://www.comp.nus.edu.sg"><img width="150" src="http://www.comp.nus.edu.sg/~kanmy/img/soc.jpg" alt="School of Computing" class="img-fluid"></a></div>
+	    <div class="col-xs-9"><h1>Information Retrieval</h1><p>NUS SoC, <B>AY 2019/20</B>, Semester II, 
+		Fridays 12:00-14:00 @ LT15 </p>
+	    </div>
+	  </div>
+	</div>
+      </div>
+
+<div class="container-fluid">
+<div class="alert alert-info">
+Last updated: Friday, April 17, 2020 - First release of the document </div>
+
+<div class="alert alert-danger" role="alert">
+  Deadline for submission: <strong> 10 May 2020, 10pm SGT</strong>
+</div>
+
+  <div class="row"> <h2>Homework #5 &#187; Web Search Engine for Computer Science</h2>
+
+  <P>This homework is an alternative assessment (in place of the exam) for the exchange students.</P>
+
+<h3>Commonalities with Homeworks #2 and #3</h3>
+
+<p> The indexing and query commands will use an <span
+class="text-error">(almost)</span> identical input format to Homeworks
+#2 and #3, so that you need not modify much of your code to deal with
+command line processing. To recap: </p>
+
+<p><b>Indexing:</b> <code>$ python index.py -i directory-of-documents
+-d dictionary-file -p postings-file</code><br>
+</p>
+<p><b>Searching:</b> <code>$ python search.py -d dictionary-file -p
+postings-file -q query-file -o output-file-of-results</code><br>
+</p>
+
+<P><SPAN CLASS="text-error">The minor difference from Homeworks #2 and #3 is 
+that <code>query-file</code> specifies a single query instead of a list of
+queries.</SPAN></p>
+
+<p>However, significantly different from the previous homework, you 
+will need to collect a set of webpages on Computer Science topics for your system. </p>
+
+<BLOCKQUOTE><p><b>Problem Statement</b>: Given 1) a set of webpages on Computer 
+Science topics (to be collected on your own) as the candidate document collection 
+to retrieve from, and 2) a set of queries, return the list of the IDs and the URLs of
+the relevant documents for each query, in sorted order of relevance.
+Your search engine should return the entire set of relevant documents
+(don't threshold to the top <I>K</I> relevant documents). </p>
+
+<p><span class="text-error">Your system should return the results for the
+query <code>query-file</code> on multiple lines.</span> Each line contains
+ the ID and the URL of the document, separated by a single space ' '. Return an empty line
+if no documents are relevant.</p></BLOCKQUOTE>
+
+<p>For this assignment, no holds are barred. You may use any type of
+preprocessing, post-processing, indexing and querying process you
+wish.  You may wish to incorporate or use other python libraries or
+external resources. However, for python libraries, you'll have to
+include them with your submission properly -- We will not install new
+libraries to grade your submissions. Moreover, more credits will be given 
+if you are implementing the features on your own instead of using existing 
+libraries / resources. Please indicate clearly in your documentation which part is implemented by 
+you and which part is done using existing libraries / resources.
+</p>
+
+<h3>Techniques for Retrieval</h3>
+
+<P>You are required implement PageRank, as well as one other technique (e.g., Zones and Fields or Query Refinement)
+ in your system. Document the details of your implemenation and evaluation of the techniques in your report. </P>
+ 
+<P>Nevertheless, do focus on the textual content of the webpage. There is no need to deal with the images, videos and scripts.</P>
+
+<h3>More details on the Queries and the Documents</h3>
+
+<P><b>Queries:</b></P>
+
+<P> The queries are free text queries, such as <i>pagerank examples</i> and 
+<i>"information retrieval" textbook</i>. The keywords enclosed in double quotes 
+are meant to be searched as a phrase. The phrases in the queries are 2 or 3 words 
+long, max; so you if you are able to deal with phrasal queries, you can support 
+them using n-word indices or with positional indices.</p>
+
+<p><b>Documents:</b></p>
+
+<P>You should collect 2000 webpages on Computer Science topics, possibly
+ using the crawling algorithm introduced in the lecture. </P>
+
+<P>The files in the collection should be named by their document IDs, which should be an integer between 1-2000. </P>
+
+<P>Since you are required to implement PageRank, you should make sure that the webpages collected 
+are mostly linked (so that the graph is not full of isolated nodes).</P>
+
+<h3>What to turn in?</h3>
+
+<p>For the system, you are required to submit <CODE>index.py</CODE>, <CODE>search.py</CODE>,
+<CODE>dictionary.txt</CODE>, <CODE>postings.txt</CODE> and a few sample query files (e.g., <CODE>q1.txt</CODE>) for running your system.</p>
+
+<p>You <span class="text-error">do not</span> need to include documentation collection but you should make it available 
+for downloading until the end of May. </p>
+
+<p>For the documentation, you are required to submit <CODE>README.txt</CODE> and other supplementary documentations (if any). </p>
+
+<h3>Submission Formatting</h3>
+
+<p>You are required to do this assignment <b>individually</b>. </p>
+
+<p>For us to grade this assignment in a timely manner, we need you to
+adhere strictly to the following submission guidelines. They will help
+me grade the assignment in an appropriate manner. <span
+class="text-error">You will be penalized if you do not follow these
+instructions.</span> Your student number in all of the following
+statements should not have any spaces and any letters should be in
+CAPITALS. You are to turn in the following files:</p>
+
+<ul>
+  <li>A plain text documentation file <code>README.txt</code>: this is
+  a text only file that describes any information you want me to know
+  about your submission. (Don't forget to include instructions for downloading the document collection.)
+  You <span class="text-error">should
+  not</span> include any identifiable information about your
+  assignment (your name, phone number, etc.) except your student number
+  and email (we need the email to contact you about your grade, please
+  use your e*******@u.nus.edu address, not your email alias). This is
+  to help you get an objective grade in your assignment, as we won't
+  associate student numbers with student names.  <strong>You should use
+  the <code>README.txt</code> template given to you in Homework #1 as
+  a start.  In particular, you need to assert whether you followed
+  class policy for the assignment or not.</strong></li>
+
+  <li>All source code. We <span class="text-error">will</span> be
+  reading your code, so please do us a favor and format it nicely.
+  Again, if you're using external libraries, make sure to include them
+  properly so that your submission can be evaluated without hassles (and
+  acknowledge your external libraries as a source of help in your
+  submission).</li>
+  </ul>
+
+<p>These files will need to be suitably zipped in a single file called
+<code>&lt;student number&gt;.zip</code>. Please use a zip archive and
+not tar.gz, bzip, rar or cab files. Make sure when the archive unzips
+that all of the necessary files are found in a directory called
+<code>&lt;student number&gt;</code>. Upload the resulting zip file to
+LumiNUS Files by the due date: <b>10 May 2020, 10pm
+SGT</b>. Late submissions will NOT be accepted. </p>
+
+<h3>Grading Guidelines</h3>
+
+<p>The grading of this homework is based on the design of your system 
+(including your method for document collection), the correctness of your implementation, the quality of the search 
+results and the documentation.</p>
+</ul>
+
+<H3>Hints</H3>
+
+<UL>
+
+  <LI> If there are certain online services or APIs (e.g., web
+       services), you wish to invoke in running your system, you
+       <strong>can</strong> use these through function calls to
+       external services.  You may also wish to pre-compile certain
+       (case-specific) resources for use by your system at
+       run-time. For using online resources, it maybe helpful to use
+       python's utilities to retrieve web pages (URLs), and save it as
+       a temporary page for more analysis. You may use temporary file
+       names of the form: <code>temp-*.*</code> in the current
+       directory for query processing.</LI>
+
+  <LI> While you don't need to print scores out in your final output, you may 
+	   find it useful to include such information in your debugging output when
+       developing your solution.</LI>
+      
+  <LI> Bulletproof your input and output.  Note that now the input is only a singe file 
+	   instead of a directory. Check that your output is in
+       the correct format (docIDs separated by single spaces, no
+       quotations, no tabs).</LI>
+
+
+</UL> </div> </div>
+<!-- Footer ================================================== -->
+</div> <!-- /container -->
+  <footer class="footer">
+  <p class="pull-right"><a href="#">Back to top</a></p>
+  <p>Designed with <a href="http://twitter.github.com/bootstrap/">Twitter Bootstrap</a>.</p>
+</footer>
+
+<!-- Le javascript ================================================== -->
+<!-- Placed at the end of the document so the pages load faster -->
+<script src="http://www.comp.nus.edu.sg/~kanmy/js/jquery.min.js"></script>
+<script src="http://www.comp.nus.edu.sg/~kanmy/js/bootstrap.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/prettify/r298/prettify.min.js"></script>
+<script src="https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js"></script>
+</body></html>
