@@ -1,4 +1,4 @@
-## =============== Web Crawler ==================
+## Web Crawler 
 website crawled: https://en.wikipedia.org/wiki/Category:Indexes_of_computer_topics
 
 Structure of crawled website: (altogether 2447 websites)
@@ -63,7 +63,7 @@ It then give the ranked page list, following the format of:
 So we know that website No.1,6,4,5,2,3 has higher page rank. (Note that output indexing starts from 0, yet the website txt file name starts from 1)
 
 
-## =================== INDEXING ===================
+## INDEXING 
 
 command to run indexing:  (-x means supporing query phrasal)
 
@@ -99,7 +99,7 @@ postings --- many dictionaries recording the the information of terms,
 key is the document ID that the term occurs, value is term positions in that document and the weighted term frequency
 
 
-## ====================== SEARCHING =========================
+## SEARCHING 
 
 command to run search:  (-x means supporing query phrasal)
 
@@ -107,7 +107,7 @@ $ python3 search.py -d dictionary.txt -p postings.txt -q q1_1.txt -o output_q1_1
 
 In the main implementation of the Search Algorithm, we will be ranking the documents by lnc.ltc ranking scheme (similar to that of HW3). 
 
-## ============== Ranking by lnc.ltc ranking scheme ==================
+## Ranking by lnc.ltc ranking scheme
 The documents will be ranked according to the lnc.ltc ranking scheme.
 
 That is to say that the weights of each term in the document will be calculated as: (1 + log10(term_frequency_in_documents))
@@ -115,10 +115,10 @@ whereas the weights of each term in the query will be calculated as: tf-idf = (1
 
 After that, cosine normalization will be applied to the weights of each term in both the query and the document, and the dot product of the weights of the terms in the query and the weights of the terms in the documents will give us a score.
 
-## ============ VSM Model with Freetext Queries ==============
+## VSM Model with Freetext Queries
 All types of queries are now considered as FreeText, except for double quoted phrases which are meant to be searched as a phrase.
 
-## ============ Process used Lesk; implement query expansion ======
+## Process used Lesk; implement query expansion 
 
 1. Read query and preprocess query. Get the frequency of terms in the query. Special treatment with phrases in the query.
 
