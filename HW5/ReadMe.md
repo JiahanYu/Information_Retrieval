@@ -33,7 +33,7 @@ It will generate a linking graph, recording of visited websites, and crawled dat
 
 The crawled data contains: title, anchor text, and content (text). 
 
-## ================ Compute Pagerank =================
+## Compute Pagerank
 command to compute page rank: (input file is set as linking_graph.txt, output file is pagerank.txt)
 
 $ python3 compute_pagerank.py
