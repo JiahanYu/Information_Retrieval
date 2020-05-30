@@ -8,3 +8,5 @@ Homework #2 » Boolean Retrieval
 Homework #3 » Vector Space Model
 
 Homework #4 » Legal Case Retrieval Mini Project
+
+Homework #5 » Web Search Engine for Computer Science
